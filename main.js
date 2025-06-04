@@ -78,32 +78,33 @@ function animate() {
 
 function render() {
     const delta = clock.getDelta();
+
+
+    if (Math.random() < 0.03) spawnFruit();
+
+fruits.forEach((fruit, i) => {
+    fruit.position.addScaledVector(fruit.userData.velocity, delta);
+
+    const sword = controller.userData.sword;
+    if (!sword) return;
+
+    const swordPos = new THREE.Vector3();
+    sword.getWorldPosition(swordPos);
+
     if (fruit.position.distanceTo(swordPos) < 0.15) {
         scene.remove(fruit);
         fruits.splice(i, 1);
         score++;
         scoreDisplay.textContent = `Puntos: ${score}`;
+        return; // evita errores por modificar el array dentro del bucle
     }
 
+    if (fruit.position.z > 1.5) {
+        scene.remove(fruit);
+        fruits.splice(i, 1);
+    }
+});
 
-    if (Math.random() < 0.03) spawnFruit();
-
-    fruits.forEach((fruit, i) => {
-        fruit.position.addScaledVector(fruit.userData.velocity, delta);
-
-        const sword = controller.userData.sword;
-        const swordPos = new THREE.Vector3();
-        sword.getWorldPosition(swordPos);
-        if (fruit.position.distanceTo(swordPos) < 0.15) {
-            scene.remove(fruit);
-            fruits.splice(i, 1);
-        }
-
-        if (fruit.position.z > 1.5) {
-            scene.remove(fruit);
-            fruits.splice(i, 1);
-        }
-    });
 
     renderer.render(scene, camera);
 }
