@@ -1,17 +1,14 @@
 import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import * as THREE from 'three';
-import Stats from 'three/addons/libs/stats.module.js';
 import { XRButton } from 'three/addons/webxr/XRButton.js';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { VRButton } from 'three/addons/webxr/VRButton.js'
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+
 let scene, camera, renderer;
 let controller, controllerGrip;
 let fruits = [];
 const clock = new THREE.Clock();
 let score = 0;
-const scoreDisplay = document.getElementById('score');
-
+let scoreSprite;
 
 init();
 animate();
@@ -29,7 +26,7 @@ function init() {
     renderer.xr.enabled = true;
 
     document.body.appendChild(renderer.domElement);
-    document.body.appendChild(VRButton.createButton(renderer)); // este botón debe aparecer
+    document.body.appendChild(VRButton.createButton(renderer));
 
     // Luces
     const light = new THREE.HemisphereLight(0xffffff, 0x444444);
@@ -59,6 +56,37 @@ function init() {
     sword.position.y = -0.25;
     controller.add(sword);
     controller.userData.sword = sword;
+
+    // Texto VR: puntaje
+    scoreSprite = createTextSprite(`Puntos: ${score}`);
+    scene.add(scoreSprite);
+}
+
+function createTextSprite(message) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+
+    context.font = '64px Arial';
+    context.fillStyle = 'white';
+    context.fillText(message, 20, 100);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(1.5, 0.75, 1);
+    return sprite;
+}
+
+function updateScoreSprite() {
+    const canvas = scoreSprite.material.map.image;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = '64px Arial';
+    context.fillStyle = 'white';
+    context.fillText(`Puntos: ${score}`, 20, 100);
+    scoreSprite.material.map.needsUpdate = true;
 }
 
 function spawnFruit() {
@@ -79,32 +107,37 @@ function animate() {
 function render() {
     const delta = clock.getDelta();
 
-
     if (Math.random() < 0.03) spawnFruit();
 
-fruits.forEach((fruit, i) => {
-    fruit.position.addScaledVector(fruit.userData.velocity, delta);
+    fruits.forEach((fruit, i) => {
+        fruit.position.addScaledVector(fruit.userData.velocity, delta);
 
-    const sword = controller.userData.sword;
-    if (!sword) return;
+        const sword = controller.userData.sword;
+        if (!sword) return;
 
-    const swordPos = new THREE.Vector3();
-    sword.getWorldPosition(swordPos);
+        const swordPos = new THREE.Vector3();
+        sword.getWorldPosition(swordPos);
 
-    if (fruit.position.distanceTo(swordPos) < 0.15) {
-        scene.remove(fruit);
-        fruits.splice(i, 1);
-        score++;
-        scoreDisplay.textContent = `Puntos: ${score}`;
-        return; // evita errores por modificar el array dentro del bucle
+        if (fruit.position.distanceTo(swordPos) < 0.15) {
+            scene.remove(fruit);
+            fruits.splice(i, 1);
+            score++;
+            updateScoreSprite();
+            return;
+        }
+
+        if (fruit.position.z > 1.5) {
+            scene.remove(fruit);
+            fruits.splice(i, 1);
+        }
+    });
+
+    // HUD: texto sigue a la cámara
+    if (scoreSprite) {
+        const offset = new THREE.Vector3(0, 0.5, -1);
+        offset.applyQuaternion(camera.quaternion);
+        scoreSprite.position.copy(camera.position).add(offset);
     }
-
-    if (fruit.position.z > 1.5) {
-        scene.remove(fruit);
-        fruits.splice(i, 1);
-    }
-});
-
 
     renderer.render(scene, camera);
 }
