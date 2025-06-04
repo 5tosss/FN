@@ -4,11 +4,14 @@ import Stats from 'three/addons/libs/stats.module.js';
 import { XRButton } from 'three/addons/webxr/XRButton.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import {VRButton} from 'three/addons/webxr/VRButton.js'
+import { VRButton } from 'three/addons/webxr/VRButton.js'
 let scene, camera, renderer;
 let controller, controllerGrip;
 let fruits = [];
 const clock = new THREE.Clock();
+let score = 0;
+const scoreDisplay = document.getElementById('score');
+
 
 init();
 animate();
@@ -75,6 +78,13 @@ function animate() {
 
 function render() {
     const delta = clock.getDelta();
+    if (fruit.position.distanceTo(swordPos) < 0.15) {
+        scene.remove(fruit);
+        fruits.splice(i, 1);
+        score++;
+        scoreDisplay.textContent = `Puntos: ${score}`;
+    }
+
 
     if (Math.random() < 0.03) spawnFruit();
 
