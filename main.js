@@ -4,6 +4,7 @@ import Stats from 'three/addons/libs/stats.module.js';
 import { XRButton } from 'three/addons/webxr/XRButton.js';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import {VRButton} from 'three/addons/webxr/VRButton.js'
 let scene, camera, renderer;
 let controller, controllerGrip;
 let fruits = [];
