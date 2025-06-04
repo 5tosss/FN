@@ -14,7 +14,7 @@ animate();
 
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x202020);
+    scene.background = new THREE.Color(0x000000);
 
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
     camera.position.set(0, 1.6, 3);
@@ -23,17 +23,18 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-    document.body.appendChild(VRButton.createButton(renderer));
 
-    // Luz
+    document.body.appendChild(renderer.domElement);
+    document.body.appendChild(VRButton.createButton(renderer)); // este botón debe aparecer
+
+    // Luces
     const light = new THREE.HemisphereLight(0xffffff, 0x444444);
     scene.add(light);
 
-    // Piso (debug)
+    // Piso
     const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(10, 10),
-        new THREE.MeshStandardMaterial({ color: 0x222222 })
+        new THREE.PlaneGeometry(4, 4),
+        new THREE.MeshStandardMaterial({ color: 0x111111 })
     );
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
@@ -61,11 +62,7 @@ function spawnFruit() {
         new THREE.SphereGeometry(0.1, 16, 16),
         new THREE.MeshStandardMaterial({ color: 0x00ff00 })
     );
-    fruit.position.set(
-        (Math.random() - 0.5) * 1.5,
-        0.5 + Math.random(),
-        -1.5
-    );
+    fruit.position.set((Math.random() - 0.5) * 1.5, 1.0, -2);
     fruit.userData.velocity = new THREE.Vector3(0, 1.2, 3);
     scene.add(fruit);
     fruits.push(fruit);
@@ -78,14 +75,11 @@ function animate() {
 function render() {
     const delta = clock.getDelta();
 
-    // Generar frutas
     if (Math.random() < 0.03) spawnFruit();
 
-    // Mover frutas y detectar colisiones
     fruits.forEach((fruit, i) => {
         fruit.position.addScaledVector(fruit.userData.velocity, delta);
 
-        // Colisión simple con espada
         const sword = controller.userData.sword;
         const swordPos = new THREE.Vector3();
         sword.getWorldPosition(swordPos);
@@ -94,7 +88,6 @@ function render() {
             fruits.splice(i, 1);
         }
 
-        // Remover si pasa al jugador
         if (fruit.position.z > 1.5) {
             scene.remove(fruit);
             fruits.splice(i, 1);
