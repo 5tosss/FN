@@ -1,14 +1,15 @@
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import * as THREE from 'three';
-import { XRButton } from 'three/addons/webxr/XRButton.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 
 let scene, camera, renderer;
-let controller, controllerGrip;
+let controller1, controller2, controllerGrip1, controllerGrip2;
 let fruits = [];
 const clock = new THREE.Clock();
 let score = 0;
-let scoreSprite;
+let scoreText;
 
 init();
 animate();
@@ -24,7 +25,6 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-
     document.body.appendChild(renderer.domElement);
     document.body.appendChild(VRButton.createButton(renderer));
 
@@ -40,53 +40,47 @@ function init() {
     floor.rotation.x = -Math.PI / 2;
     scene.add(floor);
 
-    // Controlador
-    controller = renderer.xr.getController(0);
-    scene.add(controller);
+    // Cargar fuente y crear texto
+    const fontLoader = new FontLoader();
+    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+        const geometry = new TextGeometry(`Puntos: ${score}`, {
+            font: font,
+            size: 0.1,
+            height: 0.01,
+        });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        scoreText = new THREE.Mesh(geometry, material);
+        scoreText.position.set(-0.5, 2.0, -1);
+        scene.add(scoreText);
+    });
 
+    // Controladores
     const controllerModelFactory = new XRControllerModelFactory();
-    controllerGrip = renderer.xr.getControllerGrip(0);
-    controllerGrip.add(controllerModelFactory.createControllerModel(controllerGrip));
-    scene.add(controllerGrip);
 
-    // Espada simple
+    controller1 = renderer.xr.getController(0);
+    controller2 = renderer.xr.getController(1);
+    scene.add(controller1);
+    scene.add(controller2);
+
+    controllerGrip1 = renderer.xr.getControllerGrip(0);
+    controllerGrip2 = renderer.xr.getControllerGrip(1);
+    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+    scene.add(controllerGrip1);
+    scene.add(controllerGrip2);
+
+    // Añadir espadas a ambos controladores
+    addSwordToController(controller1);
+    addSwordToController(controller2);
+}
+
+function addSwordToController(controller) {
     const swordGeometry = new THREE.BoxGeometry(0.02, 0.5, 0.02);
     const swordMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
     const sword = new THREE.Mesh(swordGeometry, swordMaterial);
     sword.position.y = -0.25;
     controller.add(sword);
     controller.userData.sword = sword;
-
-    // Texto VR: puntaje
-    scoreSprite = createTextSprite(`Puntos: ${score}`);
-    scene.add(scoreSprite);
-}
-
-function createTextSprite(message) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
-    const context = canvas.getContext('2d');
-
-    context.font = '64px Arial';
-    context.fillStyle = 'white';
-    context.fillText(message, 20, 100);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-    const sprite = new THREE.Sprite(material);
-    sprite.scale.set(1.5, 0.75, 1);
-    return sprite;
-}
-
-function updateScoreSprite() {
-    const canvas = scoreSprite.material.map.image;
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.font = '64px Arial';
-    context.fillStyle = 'white';
-    context.fillText(`Puntos: ${score}`, 20, 100);
-    scoreSprite.material.map.needsUpdate = true;
 }
 
 function spawnFruit() {
@@ -106,24 +100,26 @@ function animate() {
 
 function render() {
     const delta = clock.getDelta();
-
     if (Math.random() < 0.03) spawnFruit();
 
     fruits.forEach((fruit, i) => {
         fruit.position.addScaledVector(fruit.userData.velocity, delta);
 
-        const sword = controller.userData.sword;
-        if (!sword) return;
+        const swords = [controller1, controller2]
+            .map(c => c.userData.sword)
+            .filter(s => s);
 
-        const swordPos = new THREE.Vector3();
-        sword.getWorldPosition(swordPos);
+        for (let sword of swords) {
+            const swordPos = new THREE.Vector3();
+            sword.getWorldPosition(swordPos);
 
-        if (fruit.position.distanceTo(swordPos) < 0.15) {
-            scene.remove(fruit);
-            fruits.splice(i, 1);
-            score++;
-            updateScoreSprite();
-            return;
+            if (fruit.position.distanceTo(swordPos) < 0.15) {
+                scene.remove(fruit);
+                fruits.splice(i, 1);
+                score++;
+                updateScoreText();
+                return;
+            }
         }
 
         if (fruit.position.z > 1.5) {
@@ -132,12 +128,22 @@ function render() {
         }
     });
 
-    // HUD: texto sigue a la cámara
-    if (scoreSprite) {
-        const offset = new THREE.Vector3(0, 0.5, -1);
-        offset.applyQuaternion(camera.quaternion);
-        scoreSprite.position.copy(camera.position).add(offset);
-    }
-
     renderer.render(scene, camera);
+}
+
+function updateScoreText() {
+    if (!scoreText) return;
+    const fontLoader = new FontLoader();
+    fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+        scene.remove(scoreText);
+        const geometry = new TextGeometry(`Puntos: ${score}`, {
+            font: font,
+            size: 0.1,
+            height: 0.01,
+        });
+        const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        scoreText = new THREE.Mesh(geometry, material);
+        scoreText.position.set(-0.5, 2.0, -1);
+        scene.add(scoreText);
+    });
 }
