@@ -3,6 +3,7 @@ import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFa
 import { VRButton } from 'three/addons/webxr/VRButton.js';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let scene, camera, renderer;
 let controller1, controller2, controllerGrip1, controllerGrip2;
@@ -29,18 +30,15 @@ function init() {
     document.body.appendChild(VRButton.createButton(renderer));
 
     // Luces
-    const light = new THREE.HemisphereLight(0xffffff, 0x444444);
-    scene.add(light);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444));
 
-    // Piso
-    const floor = new THREE.Mesh(
-        new THREE.PlaneGeometry(4, 4),
-        new THREE.MeshStandardMaterial({ color: 0x111111 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    scene.add(floor);
+    // Cargar escenario GLB
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.load('models/scene.glb', (gltf) => {
+        scene.add(gltf.scene);
+    });
 
-    // Cargar fuente y crear texto
+    // Texto de puntuación
     const fontLoader = new FontLoader();
     fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
         const geometry = new TextGeometry(`Puntos: ${score}`, {
@@ -56,7 +54,6 @@ function init() {
 
     // Controladores
     const controllerModelFactory = new XRControllerModelFactory();
-
     controller1 = renderer.xr.getController(0);
     controller2 = renderer.xr.getController(1);
     scene.add(controller1);
@@ -69,7 +66,7 @@ function init() {
     scene.add(controllerGrip1);
     scene.add(controllerGrip2);
 
-    // Añadir espadas a ambos controladores
+    // Espadas
     addSwordToController(controller1);
     addSwordToController(controller2);
 }
@@ -84,12 +81,21 @@ function addSwordToController(controller) {
 }
 
 function spawnFruit() {
-    const fruit = new THREE.Mesh(
+    const shapes = [
+        new THREE.BoxGeometry(0.15, 0.15, 0.15),
         new THREE.SphereGeometry(0.1, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0x00ff00 })
-    );
+        new THREE.ConeGeometry(0.1, 0.2, 16),
+        new THREE.TorusGeometry(0.08, 0.03, 16, 100),
+        new THREE.TetrahedronGeometry(0.12)
+    ];
+    const geometry = shapes[Math.floor(Math.random() * shapes.length)];
+    const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+    const fruit = new THREE.Mesh(geometry, material);
     fruit.position.set((Math.random() - 0.5) * 1.5, 1.0, -2);
     fruit.userData.velocity = new THREE.Vector3(0, 1.2, 3);
+    fruit.userData.rotationSpeed = new THREE.Vector3(
+        Math.random() * 2, Math.random() * 2, Math.random() * 2
+    );
     scene.add(fruit);
     fruits.push(fruit);
 }
@@ -100,10 +106,14 @@ function animate() {
 
 function render() {
     const delta = clock.getDelta();
+
     if (Math.random() < 0.03) spawnFruit();
 
     fruits.forEach((fruit, i) => {
         fruit.position.addScaledVector(fruit.userData.velocity, delta);
+        fruit.rotation.x += fruit.userData.rotationSpeed.x * delta;
+        fruit.rotation.y += fruit.userData.rotationSpeed.y * delta;
+        fruit.rotation.z += fruit.userData.rotationSpeed.z * delta;
 
         const swords = [controller1, controller2]
             .map(c => c.userData.sword)
@@ -133,9 +143,9 @@ function render() {
 
 function updateScoreText() {
     if (!scoreText) return;
+    scene.remove(scoreText);
     const fontLoader = new FontLoader();
     fontLoader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-        scene.remove(scoreText);
         const geometry = new TextGeometry(`Puntos: ${score}`, {
             font: font,
             size: 0.1,
